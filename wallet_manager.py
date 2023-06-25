@@ -8,6 +8,7 @@ class Control:
     def __init__(self, target_app_name):
         self.target_app_name = target_app_name
         self.pause_time = 0.2
+        self.attempts_with_no_sign = 10
 
     def pause(self, wait=None):
         waiting_time = wait or self.pause_time

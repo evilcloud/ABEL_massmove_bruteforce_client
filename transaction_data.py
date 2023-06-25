@@ -1,7 +1,6 @@
 import time
 import json
 from datetime import datetime, timedelta
-from external_communications import MultiChannelCommunicator
 
 
 class TransactionData:

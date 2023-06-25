@@ -2,9 +2,9 @@ import os
 import json
 from navigation import Navigation
 from transaction_data import TransactionData
+from wallet_manager import WalletManager
 
-
-def run_wallet(api_master_key: str, batch_size, single_amount, navigation: Navigation, report: TransactionData):
+def run_wallet(api_master_key: str, batch_size, single_amount, wallet: WalletManager, report: TransactionData):
     """
     Entry point for the desktop wallet control. This function deals purley
     with the logic, while the navigation, data capture and temporal controls
@@ -24,31 +24,31 @@ def run_wallet(api_master_key: str, batch_size, single_amount, navigation: Navig
     # 1. Wait couple of seconds to let the user move the focus into the app
     # 2. Check if the app is in focus
     print("Launching the process. Move the focus into position...")
-    navigation.pause()
-    navigation.app_in_focus()
+    wallet.control.pause()
+    wallet.control.app_in_focus()
 
     # Initial entry:
     for cycle in range(batch_size):
         report.transaction_starting(cycle + 1)
-        navigation.enter(single_amount)
-        navigation.tab()
-        navigation.enter(api_master_key)
-        navigation.pause()
-        navigation.enter()
+        wallet.navigation.enter(single_amount)
+        wallet.navigation.tab()
+        wallet.navigation.enter(api_master_key)
+        wallet.navigation.pause()
+        wallet.navigation.enter()
 
         # TODO: implement the return check, in order to accomodate the failed cases
         # that could be salvaged by closing the popup
-        popup_section(report, navigation)
+        popup_section(report, wallet)
         if report.status == "failed":
             break
         for _ in range(7):
-            navigation.tab()
+            walletnavigation.tab()
         report.transaction_completed()
     return
 
 
 
-def popup_section(report: TransactionData, navigation: Navigation):
+def popup_section(report: TransactionData, wallet: WalletManager):
     """
     This function deals with the popup section of the transaction.
     After having validated the position, it launches a loop.
@@ -70,36 +70,36 @@ def popup_section(report: TransactionData, navigation: Navigation):
     :param report:
     :return:
     """
-    attempts = navigation.attempts_with_no_sign
-    navigation.pause()
+    attempts = wallet.control.attempts_with_no_sign
+    wallet.control.pause()
     while attempts > 0:
-        screen_content = navigation.screen.capture_data()  # we don't want to run this too often
-        if not navigation.in_popup():
+        screen_content = wallet.control.extract_clipboard()  # we don't want to run this too often
+        if not wallet.control.in_popup():
             report.transaction_failed("Failed to open popup")
             return False
-        if navigation.symbol.pending(screen_content):
+        if wallet.symbols.pending(screen_content):
             report.transaction_pending()
-            navigation.pause(2)
+            wallet.control.pause()
             # Resetting attempts countdown as the operations are running normally
-            attempts = navigation.attempts_with_no_sign
+            attempts = wallet.control.attempts_with_no_sign
             continue  # no need for the rest of the code. Repeat
-        elif navigation.symbol.submitted(screen_content):
+        elif wallet.symbol.submitted(screen_content):
             report.transaction_successful()
             # Transaction is completed, so we can exit the section
             return True
         # This final one checks both for failure or lack of information
         # The definetive failure gives the program some closure by ending this cycle
-        elif failure_reason := navigation.symbol.failed_reason(screen_content):
+        elif failure_reason := wallet.symbol.failed_reason(screen_content):
             report.transaction_failed(failure_reason)
             return False
         # If none of the above, then the transaction is still processing
         # Attempts will always decrease while in this loop (reset if waiting)
-        navigation.pause(2)
+        wallet.control.pause(2)
         attempts -= 1
     # Having left the wheel of samsara we are not done - we are still in the popup
     # closing which is a challenge of it's own. Luckily we have the higher powers
     # to help us with that
-    closed_popup = navigation.close_popup()
+    closed_popup = wallet.control.close_popup()
     if not closed_popup:
         report.transaction_failed("Failed to close popup")
         return False
@@ -116,9 +116,9 @@ single_amount = int(
 )
 batch_size = int(input(f"Enter batch size (default: {batch_size}): ") or batch_size)
 
-navigation = Navigation()
+wallet = WalletManager("abelian-wallet-desktop")
 report = TransactionData(batch_size, single_amount)
 
-run_wallet(api_master_key, batch_size, single_amount, navigation, report)
+run_wallet(api_master_key, batch_size, single_amount, wallet, report)
 
 print(json.dumps(report.get_json(), indent=4))
