@@ -56,8 +56,9 @@ class Control:
         for i in range(10):
             self.tab()
             self.enter()
-            if not "Sending ABEL" in self.extract_clipboard():
+            if "Sending ABEL" not in self.extract_clipboard():
                 return True
+            self.pause(i)
         return False
 
     def in_popup(self):
@@ -66,11 +67,6 @@ class Control:
                 return True
             self.pause(1)
         return False
-
-
-class Navigation:
-    def __init__(self, control):
-        self.control = control
 
     def tab(self):
         pyautogui.press("tab")
@@ -111,5 +107,4 @@ class Symbols:
 class WalletManager:
     def __init__(self, target_app_name):
         self.control = Control(target_app_name)
-        self.navigation = Navigation(self.control)
         self.symbols = Symbols()

@@ -1,8 +1,10 @@
 import time
 import json
 from datetime import datetime, timedelta
+from external_communications import MultiChannelCommunicator
 
-
+# TODO: fix transaction curve
+# TODO: average per transaction gone missing
 class TransactionData:
     def __init__(self, batch_size, single_amount):
         self.communication = MultiChannelCommunicator()
