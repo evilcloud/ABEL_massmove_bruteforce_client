@@ -7,7 +7,7 @@ def run_wallet(api_master_pass: str, batch_size, single_amount, wallet: WalletMa
     """
     Entry point for the desktop wallet control. This function deals purley
     with the logic, while the navigation, data capture and temporal controls
-    are executed from it's own class(es) in library.
+    are executed from its own class(es) in library.
     One complex part - navigations and operations with the transactions within
     its own popup are executed ina separate function.
 
@@ -45,7 +45,7 @@ def run_wallet(api_master_pass: str, batch_size, single_amount, wallet: WalletMa
             break
         for _ in range(7):
             wallet.control.tab()
-    report.transaction_completed()
+        report.transaction_completed()
 
 
 
@@ -96,12 +96,13 @@ def popup_section(report: TransactionData, wallet: WalletManager):
             break
         # If none of the above, then the transaction is still processing
         # Attempts will always decrease while in this loop (reset if waiting)
-        wallet.control.pause(2)
+        wallet.control.pause(1)
         attempts -= 1
     # Having left the wheel of samsara we are not done - we are still in the popup
-    # closing which is a challenge of it's own. Luckily we have the higher powers
+    # closing which is a challenge of its own. Luckily we have the higher powers
     # to help us with that
     closed_popup = wallet.control.close_popup()
+    report._print_json()
     if not closed_popup:
         report.transaction_failed("Failed to close popup")
         return False

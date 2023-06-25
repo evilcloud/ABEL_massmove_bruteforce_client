@@ -15,8 +15,9 @@ class Control:
         time.sleep(waiting_time)
 
     def status_bar_pause(
-        self, wait=3, position=1, desc="Pause", bar_format="{desc}: {bar}| {elapsed}"
+        self, wait=0, position=1, desc="Pause", bar_format="{desc}: {bar}| {elapsed}"
     ):
+        wait is wait if wait else self.pause_time
         for _ in tqdm(
             range(wait),
             position=position,
@@ -53,19 +54,19 @@ class Control:
     def close_popup(self):
         if not self.in_popup():
             return True
-        for i in range(10):
+        for _ in range(10):
             self.tab()
             self.enter()
             if "Sending ABEL" not in self.extract_clipboard():
                 return True
-            self.pause(i)
+            self.pause(1)
         return False
 
     def in_popup(self):
         for _ in range(10):
             if "Sending ABEL" in self.extract_clipboard():
                 return True
-            self.pause(1)
+            self.pause()
         return False
 
     def tab(self):
@@ -85,7 +86,7 @@ class Symbols:
         self.failed_symbol = "❌"
         self.failed_reasons = {
             "Insufficient balance": "Insufficient balance",
-            "Failed getting balance": "Wallet not connected",
+            "Failed getting the latest balance": "Wallet not connected",
             "Wrong password.": "Wrong password",
         }
 

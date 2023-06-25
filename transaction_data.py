@@ -7,6 +7,7 @@ from external_communications import MultiChannelCommunicator
 # TODO: average per transaction gone missing
 class TransactionData:
     def __init__(self, batch_size, single_amount):
+        self.cycle_duration = None
         self.communication = MultiChannelCommunicator()
         self.status = "launching"
         self.batch_size = batch_size
@@ -15,6 +16,8 @@ class TransactionData:
         self.total_transferred = 0
         self.start_time = datetime.now()
         self.transaction_curve = []
+        self.current_time = datetime.now()
+        self.error_message = None
         self.communication.message_telegram("---LAUNCHING---")
         self.communication.message_telegram(
             {
@@ -40,7 +43,6 @@ class TransactionData:
         self.current_time = datetime.now()
 
         self._message_api()
-        self._print_json()
 
     def transaction_pending(self):
         self.status = "running"
@@ -48,28 +50,25 @@ class TransactionData:
         self.total_transferred = self.single_amount * self.current_cycle
 
         self._message_api()
-        self._print_json()
 
     def transaction_successful(self):
         self.status = "transacted"
         self.current_time = datetime.now()
 
         self._message_api()
-        self._print_json()
 
     def transaction_completed(self):
         self.status = "completed"
         self.current_time = datetime.now()
-        cycle_duration = int(
+        self.cycle_duration = int(
             (self.current_time - self.transaction_start_time).total_seconds()
         )
 
-        self.transaction_curve.append({self.current_cycle: cycle_duration})
+        self.transaction_curve.append({self.current_cycle: self.cycle_duration})
         self.total_transferred = self.single_amount * self.current_cycle
 
         self._message_api()
         self._message_telegram()
-        self._print_json()
 
     def transaction_failed(self, error_message):
         self.status = "failed"
@@ -77,7 +76,6 @@ class TransactionData:
 
         self._message_all()
         self._message_telegram()
-        self._print_json()
 
     def get_json(self):
         current_time = datetime.now()
