@@ -9,78 +9,58 @@ logging.basicConfig(level=logging.INFO)
 # logging.disable(logging.CRITICAL)
 
 
-def popup_state(payload_data, navigation):
+def process_popup(payload_data, navigation):
     attempts = navigation.attempts_with_no_sign
     while attempts > 0:
         navigation.pause()
-        clipboard_content = navigation.extract_clipboard()
-        if not navigation.in_popup():
-            logging.info("Popup not found")
-            payload_data.update_failed("Popup collapsed")
+        if not navigation.screen.is_popup():
+            payload_data.transaction_failed("Popup collapsed")
             return False
-        elif any(
-            symbol in clipboard_content for symbol in ["⏳", "⌛", "Unlocking account"]
-        ):
-            logging.info("Waiting for transaction to be signed")
-            payload_data.update_running()
+        elif navigation.screen.transaction_processing():
+            payload_data.transaction_pending()
             navigation.pause()
+            # Resetting attempts countdown as the operations are running normally
             attempts = navigation.attempts_with_no_sign
+            # Transaction is still processing, so there is no need for the rest of the function to run yet
             continue
-        elif "✅ Transaction submitted." in clipboard_content:
-            logging.info("Transaction submitted")
-            payload_data.update_transacted()
-        elif "❌" in clipboard_content:
-            logging.info("Transaction failed")
-            error_messages = {
-                "Failed getting balance": "Wallet is not connected",
-                "Insufficient balance": "Balance insufficient",
-            }
-
-            error_message = next(
-                (
-                    error_messages[key]
-                    for key in error_messages
-                    if key in clipboard_content
-                ),
-                "Transaction failed",
+        elif navigation.screen.transaction_submitted(navigation.extract_clipboard()):
+            payload_data.transaction_successful()
+        elif navigation.screen.is_transaction_failed(navigation.extract_clipboard()):
+            payload_data.transaction_failed(
+                navigation.screen.transaction_failure_reason(
+                    navigation.extract_clipboard()
+                )
             )
-            payload_data.update_failed(error_message)
-        else:
-            logging.info("No expected symbols found")
-            attempts -= 1
-
+        attempts -= 1
         closed_popup = navigation.close_popup()
         if not closed_popup:
-            logging.info("Failed to close popup")
-            payload_data.update_failed("Failed to close popup")
-        return closed_popup
-
-    logging.info("Too many consecutive attempts with no expected symbols")
-    payload_data.update_failed("Too many consecutive attempts with no expected symbols")
-    return False
+            payload_data.transaction_failed("Failed to close popup")
+            break
 
 
 def perform_transaction(api_master_pass, amount, batch_size, payload_data, navigation):
     batch = tqdm(range(batch_size), desc="Batch", position=0)
 
-    payload_data.update_starting(0)
+    payload_data.transaction_starting(0)
     for cycle in batch:
-        payload_data.update_starting(cycle + 1)
+        payload_data.transaction_starting(cycle + 1)
         navigation.app_in_focus()
         navigation.type(str(amount))  # single amount
         navigation.tab()
         navigation.type(api_master_pass)  # master password
         navigation.tab()
         navigation.enter()
-        if not popup_state(payload_data, navigation):
+        if not process_popup(payload_data, navigation):
             break
-        # if payload_data.status == "failed":  # Check if the transaction failed
-        #     break  # Break out of the loop if failed
         if payload_data.status == "failed":
-            break  # Replace the commented code with this line
+            break
         for _ in range(7):
             navigation.tab()
-        payload_data.update_completed()
+        closed_popup = navigation.close_popup()
+        if not closed_popup:
+            payload_data.transaction_failed("Failed to close popup")
+            break
+        payload_data.transaction_completed()
     print(json.dumps(payload_data.get_json(), indent=4))
 
 

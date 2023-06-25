@@ -32,7 +32,7 @@ class TransactionData:
         """Format timestamp to human-readable format."""
         return timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
-    def update_starting(self, current_cycle):
+    def transaction_starting(self, current_cycle):
         self.status = "starting"
         self.current_cycle = current_cycle
         self.transaction_start_time = datetime.now()
@@ -41,7 +41,7 @@ class TransactionData:
         self._message_api()
         self._print_json()
 
-    def update_running(self):
+    def transaction_pending(self):
         self.status = "running"
         self.current_time = datetime.now()
         self.total_transferred = self.single_amount * self.current_cycle
@@ -49,14 +49,14 @@ class TransactionData:
         self._message_api()
         self._print_json()
 
-    def update_transacted(self):
+    def transaction_successful(self):
         self.status = "transacted"
         self.current_time = datetime.now()
 
         self._message_api()
         self._print_json()
 
-    def update_completed(self):
+    def transaction_completed(self):
         self.status = "completed"
         self.current_time = datetime.now()
         cycle_duration = int(
@@ -70,7 +70,7 @@ class TransactionData:
         self._message_telegram()
         self._print_json()
 
-    def update_failed(self, error_message):
+    def transaction_failed(self, error_message):
         self.status = "failed"
         self.error_message = error_message
 
@@ -140,3 +140,5 @@ class TransactionData:
 
     def _print_json(self):
         print(json.dumps(self.get_json(), indent=4))
+
+
