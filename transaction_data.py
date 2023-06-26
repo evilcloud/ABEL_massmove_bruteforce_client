@@ -3,9 +3,22 @@ import json
 from datetime import datetime, timedelta
 from external_communications import MultiChannelCommunicator
 
-# TODO: fix transaction curve
-# TODO: average per transaction gone missing
+
 class TransactionData:
+    STATUS = "status"
+    BATCH_SIZE = "batch_size"
+    SINGLE_AMOUNT = "single_amount"
+    TOTAL_EXPECTED_AMOUNT = "total_expected_amount"
+    TOTAL_TRANSFERRED = "total_transferred"
+    START_TIME = "start_time"
+    CURRENT_TIME = "current_time"
+    ELAPSED_TIME = "elapsed_time"
+    AVERAGE_TX_DURATION = "average_tx_duration"
+    ESTIMATED_TIME_LEFT = "estimated_time_left"
+    CURRENT_CYCLE = "current_cycle"
+    TRANSACTION_CURVE = "transaction_curve"
+    ERROR_MESSAGE = "error_message"
+
     def __init__(self, batch_size, single_amount):
         self.cycle_duration = None
         self.communication = MultiChannelCommunicator()
@@ -18,13 +31,14 @@ class TransactionData:
         self.transaction_curve = []
         self.current_time = datetime.now()
         self.error_message = None
+        self.finished = False
         self.communication.message_telegram("---LAUNCHING---")
         self.communication.message_telegram(
             {
-                "batch size": self.batch_size,
-                "single amount": self.single_amount,
-                "total expected_amount": self.total_expected_amount,
-                "start time": self._format_timestamp(self.start_time),
+                self.BATCH_SIZE: self.batch_size,
+                self.SINGLE_AMOUNT: self.single_amount,
+                self.TOTAL_EXPECTED_AMOUNT: self.total_expected_amount,
+                self.START_TIME: self._format_timestamp(self.start_time),
             }
         )
 
@@ -35,6 +49,19 @@ class TransactionData:
     def _format_timestamp(self, timestamp):
         """Format timestamp to human-readable format."""
         return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+    def launching_session(self):
+        self.status = "launching"
+        self.current_time = datetime.now()
+        self.communication.message_telegram("---LAUNCHING---")
+        self.communication.message_telegram(
+            {
+                self.BATCH_SIZE: self.batch_size,
+                self.SINGLE_AMOUNT: self.single_amount,
+                self.TOTAL_EXPECTED_AMOUNT: self.total_expected_amount,
+                self.START_TIME: self._format_timestamp(self.start_time),
+            }
+        )
 
     def transaction_starting(self, current_cycle):
         self.status = "starting"
@@ -47,12 +74,12 @@ class TransactionData:
     def transaction_pending(self):
         self.status = "running"
         self.current_time = datetime.now()
-        self.total_transferred = self.single_amount * self.current_cycle
 
         self._message_api()
 
     def transaction_successful(self):
         self.status = "transacted"
+        self.total_transferred += self.single_amount
         self.current_time = datetime.now()
 
         self._message_api()
@@ -64,8 +91,22 @@ class TransactionData:
             (self.current_time - self.transaction_start_time).total_seconds()
         )
 
-        self.transaction_curve.append({self.current_cycle: self.cycle_duration})
-        self.total_transferred = self.single_amount * self.current_cycle
+        self.transaction_curve.append(self.cycle_duration)
+
+        self._message_api()
+
+    def session_completed(self):
+        self.finished = True
+        self.status = "session completed"
+        self.current_time = datetime.now()
+
+        self._message_api()
+        self._message_telegram()
+
+    def session_failed(self):
+        self.finished = True
+        self.status = "session failed"
+        self.current_time = datetime.now()
 
         self._message_api()
         self._message_telegram()
@@ -76,6 +117,7 @@ class TransactionData:
 
         self._message_all()
         self._message_telegram()
+        self._print_json()
 
     def get_json(self):
         current_time = datetime.now()
@@ -92,35 +134,53 @@ class TransactionData:
         )
 
         data = {
-            "status": self.status,
-            "batch size": self.batch_size,
-            "single amount": self.single_amount,
-            "total expected_amount": self.total_expected_amount,
-            "total transferred": self.total_transferred,
-            "start time": self._format_timestamp(self.start_time),
-            "current time": self._format_timestamp(current_time),
-            "elapsed time": str(elapsed_time),
-            "average tx duration": str(timedelta(seconds=average_transaction_time)),
-            "estimated time left": str(time_left_estimate),
-            "current cycle": self.current_cycle,
-            "transaction curve": self.transaction_curve,
+            self.STATUS: self.status,
+            self.BATCH_SIZE: self.batch_size,
+            self.SINGLE_AMOUNT: self.single_amount,
+            self.TOTAL_EXPECTED_AMOUNT: self.total_expected_amount,
+            self.TOTAL_TRANSFERRED: self.total_transferred,
+            self.START_TIME: self._format_timestamp(self.start_time),
+            self.CURRENT_TIME: self._format_timestamp(current_time),
+            self.ELAPSED_TIME:
+                str(elapsed_time - timedelta(
+                    microseconds=elapsed_time.microseconds)).split(".")[0],
+            self.AVERAGE_TX_DURATION: str(int(average_transaction_time)) + " sec",
+
+            self.ESTIMATED_TIME_LEFT: str(time_left_estimate).split(".")[0],
+            self.CURRENT_CYCLE: self.current_cycle,
+            self.TRANSACTION_CURVE: {"title": "Transaction curve",
+                                     "chart": self.transaction_curve, }
         }
         if self.current_cycle == 1 and self.status != "completed":
-            del data["average tx duration"]
+            del data[self.AVERAGE_TX_DURATION]
         if self.status == "failed":
-            data["error message"] = self.error_message
+            data[self.ERROR_MESSAGE] = self.error_message
         if self.status == "completed":
-            del data["current cycle"]
-
+            del data[self.CURRENT_CYCLE]
+        if self.finished:
+            del data[self.ESTIMATED_TIME_LEFT]
+        if self.error_message:
+            data[self.ERROR_MESSAGE] = self.error_message
+        del data[self.TRANSACTION_CURVE]
         return data
 
     def _message_api(self):
         self.communication.message_api(self.get_json())
+        self._print_json()
 
     def _message_all(self):
         self.communication.message_all(self.get_json())
 
     def _message_telegram(self):
+        current_time = datetime.now()
+        elapsed_time = current_time - self.start_time
+        elapsed_seconds = elapsed_time.total_seconds()
+        average_transaction_time = (
+            elapsed_seconds / len(self.transaction_curve)
+            if self.transaction_curve
+            else 0
+        )
+
         self.communication.message_telegram(
             {
                 "status": self.status,
@@ -128,16 +188,15 @@ class TransactionData:
                 "batch size": self.batch_size,
                 "total transferred": self.total_transferred,
                 "total expected amount": self.total_expected_amount,
-                "current time": self._format_time(
-                    (datetime.now() - self.start_time).total_seconds()
-                ),
+                "average tx duration": str(
+                    timedelta(seconds=average_transaction_time)),
                 "total time": self._format_time(
-                    (datetime.now() - self.start_time).total_seconds()
-                ),
+                    (datetime.now() - self.start_time).total_seconds()),
             }
         )
+        if self.error_message:
+            self.communication.message_telegram(
+                {"error message": self.error_message})
 
     def _print_json(self):
         print(json.dumps(self.get_json(), indent=4))
-
-

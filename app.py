@@ -3,7 +3,9 @@ import json
 from transaction_data import TransactionData
 from wallet_manager import WalletManager
 
-def run_wallet(api_master_pass: str, batch_size, single_amount, wallet: WalletManager, report: TransactionData):
+
+def run_wallet(api_master_pass: str, batch_size, single_amount,
+               wallet: WalletManager, report: TransactionData):
     """
     Entry point for the desktop wallet control. This function deals purley
     with the logic, while the navigation, data capture and temporal controls
@@ -48,8 +50,6 @@ def run_wallet(api_master_pass: str, batch_size, single_amount, wallet: WalletMa
         report.transaction_completed()
 
 
-
-
 def popup_section(report: TransactionData, wallet: WalletManager):
     """
     This function deals with the popup section of the transaction.
@@ -90,7 +90,7 @@ def popup_section(report: TransactionData, wallet: WalletManager):
             break
             # Transaction is completed, but we have to just break to close popup
         # This final one checks both for failure or lack of information
-        # The definetive failure gives the program some closure by ending this cycle
+        # The definitive failure gives the program some closure by ending this cycle
         elif failure_reason := wallet.symbols.failed_reason(screen_content):
             report.transaction_failed(failure_reason)
             break
@@ -102,12 +102,10 @@ def popup_section(report: TransactionData, wallet: WalletManager):
     # closing which is a challenge of its own. Luckily we have the higher powers
     # to help us with that
     closed_popup = wallet.control.close_popup()
-    report._print_json()
     if not closed_popup:
         report.transaction_failed("Failed to close popup")
         return False
     return True
-
 
 
 api_master_pass = os.environ["API_MASTER_PASS"]
@@ -121,7 +119,14 @@ batch_size = int(input(f"Enter batch size (default: {batch_size}): ") or batch_s
 
 wallet = WalletManager("abelian-wallet-desktop")
 report = TransactionData(batch_size, single_amount)
-
-run_wallet(api_master_pass, batch_size, single_amount, wallet, report)
-
-print(json.dumps(report.get_json(), indent=4))
+try:
+    run_wallet(api_master_pass, batch_size, single_amount, wallet, report)
+    report.session_completed()
+except Exception as e:
+    if e == KeyboardInterrupt:
+        report.error_message = "Keyboard interrupt"
+    else:
+        report.error_message = str(e)
+    report.session_failed()
+finally:
+    print("---DONE---")
