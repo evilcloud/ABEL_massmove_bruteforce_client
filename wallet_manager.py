@@ -2,6 +2,7 @@ import pyautogui
 import subprocess
 from tqdm import tqdm
 import time
+import pyperclip
 
 
 class Control:
@@ -15,15 +16,16 @@ class Control:
         time.sleep(waiting_time)
 
     def status_bar_pause(
-        self, wait=0, position=1, desc="Pause", bar_format="{desc}: {bar}| {elapsed}"
+            self, wait=0, position=1, desc="Pause",
+            bar_format="{desc}: {bar}| {elapsed}"
     ):
         wait is wait if wait else self.pause_time
         for _ in tqdm(
-            range(wait),
-            position=position,
-            leave=False,
-            desc=desc,
-            bar_format=bar_format,
+                range(wait),
+                position=position,
+                leave=False,
+                desc=desc,
+                bar_format=bar_format,
         ):
             self.pause(1)
         self.app_in_focus()
@@ -45,11 +47,18 @@ class Control:
                 print(f"An error occurred: {e}")
             self.status_bar_pause(wait=5, desc="APP WINDOW NOT IN FOCUS")
 
+    # def extract_clipboard(self):
+    #     self.pause()
+    #     pyautogui.hotkey("command", "a")
+    #     pyautogui.hotkey("command", "c")
+    #     return subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
+
     def extract_clipboard(self):
         self.pause()
+        pyperclip.copy('')
         pyautogui.hotkey("command", "a")
         pyautogui.hotkey("command", "c")
-        return subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
+        return pyperclip.paste()
 
     def close_popup(self):
         if not self.in_popup():

@@ -7,15 +7,15 @@ from external_communications import MultiChannelCommunicator
 class TransactionData:
     STATUS = "status"
     BATCH_SIZE = "batch_size"
-    SINGLE_AMOUNT = "single_amount"
-    TOTAL_EXPECTED_AMOUNT = "total_expected_amount"
-    TOTAL_TRANSFERRED = "total_transferred"
+    SINGLE_AMOUNT = "quota"
+    TOTAL_EXPECTED_AMOUNT = "expected_total"
+    TOTAL_TRANSFERRED = "transferred_total"
     START_TIME = "start_time"
     CURRENT_TIME = "current_time"
     ELAPSED_TIME = "elapsed_time"
-    AVERAGE_TX_DURATION = "average_tx_duration"
-    ESTIMATED_TIME_LEFT = "estimated_time_left"
-    CURRENT_CYCLE = "current_cycle"
+    AVERAGE_TX_DURATION = "average_tx_time"
+    ESTIMATED_TIME_LEFT = "time_remaining"
+    CURRENT_CYCLE = "cycle_count"
     TRANSACTION_CURVE = "transaction_curve"
     ERROR_MESSAGE = "error_message"
 
@@ -133,6 +133,8 @@ class TransactionData:
             seconds=average_transaction_time * remaining_cycles
         )
 
+        # TODO: fix transaction curve so it works with dashboard
+
         data = {
             self.STATUS: self.status,
             self.BATCH_SIZE: self.batch_size,
@@ -148,8 +150,7 @@ class TransactionData:
 
             self.ESTIMATED_TIME_LEFT: str(time_left_estimate).split(".")[0],
             self.CURRENT_CYCLE: self.current_cycle,
-            self.TRANSACTION_CURVE: {"title": "Transaction curve",
-                                     "chart": self.transaction_curve, }
+            self.TRANSACTION_CURVE: {"durations": self.transaction_curve}
         }
         if self.current_cycle == 1 and self.status != "completed":
             del data[self.AVERAGE_TX_DURATION]
@@ -161,7 +162,6 @@ class TransactionData:
             del data[self.ESTIMATED_TIME_LEFT]
         if self.error_message:
             data[self.ERROR_MESSAGE] = self.error_message
-        del data[self.TRANSACTION_CURVE]
         return data
 
     def _message_api(self):
