@@ -6,18 +6,18 @@ from external_communications import MultiChannelCommunicator
 
 class TransactionData:
     STATUS = "status"
-    BATCH_SIZE = "batch_size"
-    SINGLE_AMOUNT = "quota"
-    TOTAL_EXPECTED_AMOUNT = "expected_total"
-    TOTAL_TRANSFERRED = "transferred_total"
-    START_TIME = "start_time"
-    CURRENT_TIME = "current_time"
-    ELAPSED_TIME = "elapsed_time"
-    AVERAGE_TX_DURATION = "average_tx_time"
-    ESTIMATED_TIME_LEFT = "time_remaining"
-    CURRENT_CYCLE = "cycle_count"
-    TRANSACTION_CURVE = "transaction_curve"
-    ERROR_MESSAGE = "error_message"
+    BATCH_SIZE = "cycle count"
+    SINGLE_AMOUNT = "increment"
+    TOTAL_EXPECTED_AMOUNT = "tx capacity"
+    TOTAL_TRANSFERRED = "filled"
+    START_TIME = "t:start"
+    CURRENT_TIME = "t:current"
+    ELAPSED_TIME = "t:estimated"
+    AVERAGE_TX_DURATION = "average tx time"
+    ESTIMATED_TIME_LEFT = "t:remaining"
+    CURRENT_CYCLE = "curr cycle"
+    TRANSACTION_CURVE = "transaction curve"
+    ERROR_MESSAGE = "error message"
 
     def __init__(self, batch_size, single_amount):
         self.cycle_duration = None
@@ -97,7 +97,7 @@ class TransactionData:
 
     def session_completed(self):
         self.finished = True
-        self.status = "session completed"
+        self.status = "DONE"
         self.current_time = datetime.now()
 
         self._message_api()
@@ -150,7 +150,6 @@ class TransactionData:
 
             self.ESTIMATED_TIME_LEFT: str(time_left_estimate).split(".")[0],
             self.CURRENT_CYCLE: self.current_cycle,
-            self.TRANSACTION_CURVE: {"durations": self.transaction_curve}
         }
         if self.current_cycle == 1 and self.status != "completed":
             del data[self.AVERAGE_TX_DURATION]

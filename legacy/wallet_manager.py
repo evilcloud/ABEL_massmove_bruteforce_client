@@ -60,6 +60,12 @@ class Control:
         pyautogui.hotkey("command", "c")
         return pyperclip.paste()
 
+    def confirmation_popup(self):
+        self.tab()
+        self.tab()
+        self.enter()
+        return False
+
     def close_popup(self):
         if not self.in_popup():
             return True
@@ -78,8 +84,9 @@ class Control:
             self.pause()
         return False
 
-    def tab(self):
-        pyautogui.press("tab")
+    def tab(self, nr=1):
+        for _ in range(nr):
+            pyautogui.press("tab")
 
     def enter(self):
         pyautogui.press("enter")
@@ -91,7 +98,7 @@ class Control:
 class Symbols:
     def __init__(self):
         self.pending_symbols = ["⏳", "⌛", "Unlocking account"]
-        self.submitted_symbol = "✅ Transaction submitted."
+        self.submitted_symbol = "✅"
         self.failed_symbol = "❌"
         self.failed_reasons = {
             "Insufficient balance": "Insufficient balance",

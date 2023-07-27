@@ -6,24 +6,6 @@ from wallet_manager import WalletManager
 
 def run_wallet(api_master_pass: str, batch_size, single_amount,
                wallet: WalletManager, report: TransactionData):
-    """
-    Entry point for the desktop wallet control. This function deals purley
-    with the logic, while the navigation, data capture and temporal controls
-    are executed from its own class(es) in library.
-    One complex part - navigations and operations with the transactions within
-    its own popup are executed ina separate function.
-
-    The main steps are:
-    1. Preparations
-    2. Initial entry (amount, master pass, confirmation)
-    3. Transaction section (done in a separate function)
-    4. Returning to the initial position (7 tabs)
-    5. Report of completion of the cycle
-    6. Move to the next cycle or final report and exit if done or failed
-    """
-    # Preparations:
-    # 1. Wait couple of seconds to let the user move the focus into the app
-    # 2. Check if the app is in focus
     print("Launching the process. Move the focus into position...")
     wallet.control.pause()
     wallet.control.app_in_focus()
@@ -45,36 +27,17 @@ def run_wallet(api_master_pass: str, batch_size, single_amount,
             break
         if report.status == "failed":
             break
-        for _ in range(7):
-            wallet.control.tab()
+        wallet.control.pause(1)
+        wallet.control.tab(10)
         report.transaction_completed()
 
 
 def popup_section(report: TransactionData, wallet: WalletManager):
-    """
-    This function deals with the popup section of the transaction.
-    After having validated the position, it launches a loop.
-    Within that loop it captures the content of the screen (processing
-    is done in another library) and first checks if we are in the popup at all.
-    if not, it reports the failure and leaves the function.
-    If the popup displays symbols of pending transaction, this state is reported,
-    the rest of the loop is ignored the loop is repeated (after the wait)
-    If the popup displays symbols of successful transaction, this state is reported
-    and returned True
-    If the popup displays symbols of failed transaction, the reason for failure
-    is reported and the function is exited with False return
-    If none of this is the case, the case is considered pending, but potentially
-    problematic. The counter is engaged (limited by predetermined number of attempts),
-    and the loop repeats.
-    Once the number of allowed attempts have been exhausted, the function will report
-    failure and will attempt to close the popup.
-
-    :param report:
-    :return:
-    """
     attempts = wallet.control.attempts_with_no_sign
     wallet.control.pause()
+    aborted_attempts = 0
     while attempts > 0:
+        wallet.control.confirmation_popup()
         screen_content = wallet.control.extract_clipboard()  # we don't want to run this too often
         if not wallet.control.in_popup():
             report.transaction_failed("Failed to open popup")
@@ -93,7 +56,13 @@ def popup_section(report: TransactionData, wallet: WalletManager):
         # The definitive failure gives the program some closure by ending this cycle
         elif failure_reason := wallet.symbols.failed_reason(screen_content):
             report.transaction_failed(failure_reason)
-            break
+            if "Connection aborted" in failure_reason:
+                if aborted_attempts > 5:
+                    break
+                else:
+                    report.transaction_failed(f"Connection aborted Nr. {aborted_attempts}")
+                    aborted_attempts += 1
+            aborted_attempts = 0
         # If none of the above, then the transaction is still processing
         # Attempts will always decrease while in this loop (reset if waiting)
         wallet.control.pause(1)
