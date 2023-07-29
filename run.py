@@ -1,6 +1,7 @@
 import desktop_interface as di
 from transaction_data import TransactionData
 import os
+from tqdm import tqdm
 
 
 class Control:
@@ -33,7 +34,7 @@ class Control:
             if di.has_failed(screen_content):
                 return di.get_failed_reason(screen_content)
             else:
-                report.transaction_pending()
+                # report.transaction_pending()
                 self.timeout -= 1
                 di.pause(1)
         return "Popup timedout"
@@ -48,10 +49,10 @@ def run_wallet(single_amount: float, api_master_pass: str, report: TransactionDa
     di.app_in_focus(target_app)
 
     process = Control(single_amount, api_master_pass, report)
-    for cycle in range(batch_size):
+    for cycle in tqdm(range(batch_size), desc="Processing transactions"):
         report.transaction_starting(cycle)
 
-        print(f"Cycle {cycle + 1} / {batch_size}")
+        # print(f"Cycle {cycle + 1} / {batch_size}")
         process.t01_initial_entry()
         process.t02_check_popup_v2()
         error = process.t03_main_popup()
@@ -61,6 +62,7 @@ def run_wallet(single_amount: float, api_master_pass: str, report: TransactionDa
 
         process.t04_return_to_beginning()
         report.transaction_completed()
+    report._print_json()
 
 
 api_master_pass = os.environ["API_MASTER_PASS"]

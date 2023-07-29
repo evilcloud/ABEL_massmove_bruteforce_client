@@ -117,7 +117,7 @@ class TransactionData:
 
         self._message_all()
         self._message_telegram()
-        self._print_json()
+        # self._print_json()
 
     def get_json(self):
         current_time = datetime.now()
@@ -165,7 +165,7 @@ class TransactionData:
 
     def _message_api(self):
         self.communication.message_api(self.get_json())
-        self._print_json()
+        # self._print_json()
 
     def _message_all(self):
         self.communication.message_all(self.get_json())
