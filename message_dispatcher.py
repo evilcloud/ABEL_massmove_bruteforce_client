@@ -12,10 +12,6 @@ class TelegramCommunicator:
 
     async def send_telegram_message(self, message):
         bot = Bot(token=self.bot_token)
-        # Check if the message is a dictionary
-        if isinstance(message, dict):
-            # Convert the dictionary to a nicely formatted string
-            message = self._pretty_print_text(message)
         try:
             await bot.send_message(chat_id=self.chat_id, text=message)
         except Exception as e:
@@ -23,13 +19,6 @@ class TelegramCommunicator:
 
     def send_telegram_message_sync(self, message):
         asyncio.run(self.send_telegram_message(message))
-
-    def _pretty_print_text(self, data):
-        # Convert dictionary to a structured text format
-        pretty_text = ""
-        for key, value in data.items():
-            pretty_text += f"{key}:\n    {value}\n"
-        return pretty_text
 
 
 class APICommunicator:
@@ -46,7 +35,16 @@ class APICommunicator:
             print(response.content)
 
 
-class MultiChannelCommunicator(TelegramCommunicator, APICommunicator):
+class StdoutCommunicator:
+    def print_to_stdout(self, message):
+        if isinstance(message, dict):
+            pretty_message = "\n".join([f"{k}: {v}" for k, v in message.items()])
+        else:
+            pretty_message = message
+        print(pretty_message)
+
+
+class MultiChannelCommunicator(TelegramCommunicator, APICommunicator, StdoutCommunicator):
     def __init__(self):
         TelegramCommunicator.__init__(self)
         APICommunicator.__init__(self)
@@ -57,17 +55,10 @@ class MultiChannelCommunicator(TelegramCommunicator, APICommunicator):
             message = self._pretty_print_text(message)
         self.send_telegram_message_sync(message)
         self.post_update_to_server(payload)
+        self.print_to_stdout(message)
 
-    def message_telegram(self, payload):
-        self.send_telegram_message_sync(payload)
-
-    def message_api(self, payload):
-        self.post_update_to_server(payload)
-
-
-# Example usage
-if __name__ == "__main__":
-    communications = MultiChannelCommunicator()
-    communications.message_all(
-        {"example": "Hello from the bot!", "key2": "value2"}, {"example": "payload"}
-    )
+    def _pretty_print_text(self, data):
+        pretty_text = ""
+        for key, value in data.items():
+            pretty_text += f"{key}:\n    {value}\n"
+        return pretty_text

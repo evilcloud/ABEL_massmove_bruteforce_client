@@ -1,20 +1,20 @@
 import desktop_interface as di
-from transaction_data import TransactionData
-import os
+from transaction_tracker import TransactionTracker
 from tqdm import tqdm
+from message_dispatcher import MultiChannelCommunicator, Channel
 
+TARGET_APP = "Your app name"
 
 class Control:
-    def __init__(self, single_amount, api_master_pass, report: TransactionData):
+    def __init__(self, single_amount, report: TransactionTracker):
         self.single_amount = single_amount
-        self.api_master_pass = api_master_pass
         self.report = report
         self.timeout = 30
 
     def t01_initial_entry(self):
         di.enter(self.single_amount)
         di.tab()
-        di.enter(self.api_master_pass)
+        di.enter()
         di.tab()
         di.enter()
 
@@ -29,12 +29,11 @@ class Control:
             if di.is_submitted(screen_content):
                 di.tab()
                 di.enter()
-                report.transaction_successful()
+                self.report.transaction_successful()
                 return None
             if di.has_failed(screen_content):
                 return di.get_failed_reason(screen_content)
             else:
-                # report.transaction_pending()
                 self.timeout -= 1
                 di.pause(1)
         return "Popup timedout"
@@ -42,38 +41,31 @@ class Control:
     def t04_return_to_beginning(self):
         di.tab(10)
 
+def run_logic(single_amount: float, batch_size: int):
+    communicator = MultiChannelCommunicator()
+    report = TransactionTracker(batch_size, single_amount)
 
-def run_wallet(single_amount: float, api_master_pass: str, report: TransactionData, batch_size: int, target_app: str):
     print("Launching the process. Move the focus into position...")
     di.pause(5)
-    di.app_in_focus(target_app)
+    di.app_in_focus(TARGET_APP)
 
-    process = Control(single_amount, api_master_pass, report)
+    process = Control(single_amount, report)
     for cycle in tqdm(range(batch_size), desc="Processing transactions"):
         report.transaction_starting(cycle)
+        communicator.send_message(report.get_data(), [Channel.TELEGRAM, Channel.STDOUT])
 
-        # print(f"Cycle {cycle + 1} / {batch_size}")
         process.t01_initial_entry()
         process.t02_check_popup_v2()
         error = process.t03_main_popup()
         if error:
             report.transaction_failed(error)
+            communicator.send_message(report.get_data(), [Channel.TELEGRAM, Channel.STDOUT])
             break
 
         process.t04_return_to_beginning()
         report.transaction_completed()
-    report._print_json()
+        communicator.send_message(report.get_data(), [Channel.TELEGRAM, Channel.STDOUT])
 
-
-api_master_pass = os.environ["API_MASTER_PASS"]
-batch_size = 3
-single_amount = 1000
-
-single_amount = int(
-    input(f"Enter single amount (default: {single_amount}): ") or single_amount
-)
-batch_size = int(input(f"Enter batch size (default: {batch_size}): ") or batch_size)
-
-target_app = "abelian-wallet-desktop"
-report = TransactionData(batch_size, single_amount)
-run_wallet(single_amount, api_master_pass, report, batch_size, target_app)
+    report.session_completed()
+    communicator.send_message(report.get_data(), [Channel.TELEGRAM, Channel.STDOUT])
+    report.pretty_stdout()
