@@ -2,11 +2,17 @@ import os
 import requests
 import asyncio
 from telegram import Bot
+from enum import Enum
+
+
+class Channel(Enum):
+    TELEGRAM = 'telegram'
+    STDOUT = 'stdout'
+    API = 'api'
 
 
 class TelegramCommunicator:
     def __init__(self):
-        # Telegram credentials
         self.bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
         self.chat_id = os.environ["TELEGRAM_CHAT_ID"]
 
@@ -23,7 +29,6 @@ class TelegramCommunicator:
 
 class APICommunicator:
     def __init__(self):
-        # API credentials
         self.master_pass = os.environ["API_MASTER_PASS"]
         self.url = os.environ["API_URL"]
 
@@ -56,6 +61,20 @@ class MultiChannelCommunicator(TelegramCommunicator, APICommunicator, StdoutComm
         self.send_telegram_message_sync(message)
         self.post_update_to_server(payload)
         self.print_to_stdout(message)
+
+    def send_message(self, payload, channels: list):
+        message = payload
+        if isinstance(message, dict):
+            message = self._pretty_print_text(message)
+
+        if Channel.TELEGRAM in channels:
+            self.send_telegram_message_sync(message)
+
+        if Channel.API in channels:
+            self.post_update_to_server(payload)
+
+        if Channel.STDOUT in channels:
+            self.print_to_stdout(message)
 
     def _pretty_print_text(self, data):
         pretty_text = ""

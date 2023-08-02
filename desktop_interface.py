@@ -72,19 +72,30 @@ def status_bar_pause(wait=0, description="Pause"):
         pause(1)
 
 
+def get_frontmost_app_name():
+    try:
+        front_app_name = subprocess.check_output(
+            [
+                "osascript",
+                "-e",
+                'tell application "System Events" to get the name of every process whose frontmost is true',
+            ],
+            text=True,
+        ).strip()
+        return front_app_name
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+def is_browser():
+    browsers = {"Arc", "Google Chrome", "Safari", "Brave Browser"}
+    return get_frontmost_app_name() in browsers
+
+
 def app_in_focus(target_app):
     while True:
-        try:
-            front_app_name = subprocess.check_output(
-                [
-                    "osascript",
-                    "-e",
-                    'tell application "System Events" to get the name of every process whose frontmost is true',
-                ],
-                text=True,
-            ).strip()
-            if target_app in front_app_name:
-                return
-        except Exception as e:
-            print(f"An error occurred: {e}")
-        status_bar_pause(wait=5, desc="APP WINDOW NOT IN FOCUS")
+        front_app_name = get_frontmost_app_name()
+        if target_app in front_app_name:
+            return
+        else:
+            status_bar_pause(wait=5, description="APP WINDOW NOT IN FOCUS")

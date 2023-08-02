@@ -1,42 +1,50 @@
+from datetime import datetime, timedelta
+
+
 class TransactionData:
     def __init__(self, batch_size: int, single_amount: float):
-        self.batch_size = batch_size
-        self.single_amount = single_amount
-        self.total_amount = batch_size * single_amount
-        self.transaction_count = 0
-        self.successful_transactions = 0
-        self.failed_transactions = 0
-        self.pending_transactions = 0
+        self.start_time = datetime.now()
         self.data = {
-            "batch_size": self.batch_size,
-            "single_amount": self.single_amount,
-            "total_amount": self.total_amount,
-            "transaction_count": self.transaction_count,
-            "successful_transactions": self.successful_transactions,
-            "failed_transactions": self.failed_transactions,
-            "pending_transactions": self.pending_transactions,
+            "batch_size": batch_size,
+            "single_amount": single_amount,
+            "total_amount": batch_size * single_amount,
+            "transaction_count": 0,
+            "transaction_times": [],
+            "session_status": "In Progress",
+            "error_message": None,
         }
 
     def transaction_starting(self, current_cycle):
-        self.transaction_count = current_cycle + 1
-        self.data["transaction_count"] = self.transaction_count
-        self.pending_transactions += 1
-        self.data["pending_transactions"] = self.pending_transactions
+        self.data["transaction_count"] = current_cycle + 1
+        self.transaction_start_time = datetime.now()
 
     def transaction_successful(self):
-        self.successful_transactions += 1
-        self.pending_transactions -= 1
-        self.data["successful_transactions"] = self.successful_transactions
-        self.data["pending_transactions"] = self.pending_transactions
+        transaction_end_time = datetime.now()
+        transaction_time = (transaction_end_time - self.transaction_start_time).total_seconds()
+        self.data["transaction_times"].append(transaction_time)
 
     def transaction_failed(self, error_message):
-        self.failed_transactions += 1
-        self.pending_transactions -= 1
-        self.data["failed_transactions"] = self.failed_transactions
-        self.data["pending_transactions"] = self.pending_transactions
+        self.data["session_status"] = "Failed"
+        self.data["error_message"] = error_message
 
     def session_completed(self):
-        self.data["session_status"] = "completed"
+        if self.data["error_message"] is None:
+            self.data["session_status"] = "Completed"
 
     def get_data(self):
-        return self.data
+        data = self.data.copy()
+        data["average_transaction_time"] = sum(data["transaction_times"]) / len(data["transaction_times"]) if data[
+            "transaction_times"] else None
+        data["elapsed_time"] = (datetime.now() - self.start_time).total_seconds()
+        data["estimated_time_left"] = data["average_transaction_time"] * (
+                data["batch_size"] - data["transaction_count"]) if data[
+                                                                       "average_transaction_time"] is not None else None
+        data["total_estimated_time"] = data["average_transaction_time"] * data["batch_size"] if data[
+                                                                                                    "average_transaction_time"] is not None else None
+        del data["transaction_times"]
+        return data
+
+    def pretty_stdout(self):
+        data = self.get_data()
+        for key, value in data.items():
+            print(f"{key}:\n    {value}")
